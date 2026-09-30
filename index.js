@@ -35,12 +35,9 @@ function build(type, body) {
 }
 
 function askNumber() {
- const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
- return new Promise(resolve => {
-  rl.question('📱 دخل رقم واتساب للربط (2010xxxxxxxx) > ', ans => { rl.close(); resolve(ans.trim()) })
- })
+  const envNum = process.env.OWNER_NUMBER || process.env.BOT_NUMBER || process.env.PHONE_NUMBER || "201039757625";
+  return Promise.resolve(envNum.replace(/[^0-9]/g, ''));
 }
-
 async function start() {
  console.log(designs.owner)
  const { state, saveCreds } = await useMultiFileAuthState(`auth-${BOT_ID}`)

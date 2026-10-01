@@ -11,12 +11,22 @@ let antibotGroups = new Set();
 let antilinkGroups = new Set();
 let welcomeGroups = new Set();
 
-// قاعدة البيانات البسيطة
-if(!fs.existsSync('./db.json')) fs.writeFileSync('./db.json', JSON.stringify({users:{}}));
-let db = JSON.parse(fs.readFileSync('./db.json'));
+// 200 رياكت مناسب لكل امر
+const REACTS = {
+  'تنصيب':'👑','كود':'👑','الاوامر':'📜','منيو':'📜','help':'📜','منيو2':'📚','منيو3':'📚',
+  'ترحيب':'👋','وداع':'👋','طرد':'👊','اضافة':'➕','فتح':'🔓','قفل':'🔒','لينك':'🔗','انذار':'⚠️','الانذارات':'⚠️','مخفي':'👻','تثبيت':'📌','جروب':'👥','المشرفين':'👮','ترقية':'⬆️','تخفيض':'⬇️','مضاد_روابط':'🚫','مضاد_بوتات':'🤖','حذف':'🗑️',
+  'اكس_او':'🎮','حجر':'✊','تحدي':'⚔️','ذكاء':'🧠','لغز':'🧩','نكتة':'😂','صراحة':'🤫','لو_خيروك':'🤔','سؤال':'❓','جواب':'💡',
+  'زواج':'💍','طلاق':'💔','زوجتي':'👰','زوجي':'🤵','حب':'❤️','نسبة_الحب':'💘','بوسة':'😘','حضن':'🤗','قتل':'🔪','ضرب':'👊',
+  'بنك':'🏦','فلوس':'💰','يومية':'💵','سرقة_بنك':'💸','استثمار':'📈','توب':'🏆','توب_فلوس':'💰','لفل':'⭐','رانك':'🥇','اكسبي':'✨',
+  'تحميل':'📥','تيك_توك':'🎵','انستا':'📸','فيسبوك':'👍','اغنية':'🎧','فيديو':'🎬','صوت':'🎙️',
+  'ملصق':'🖼️','sticker':'🖼️','سرقة':'🕵️','ترجمة':'🌐','احسب':'🧮','الطقس':'🌤️','صورة':'🖼️','بحث':'🔍','جوجل':'🔎','ويكي':'📖',
+  'ايدت':'✏️','مميز':'✨','تويت':'🐦','كتابة':'✍️','خط':'🖋️','زخرفة':'🎨','اذكار':'📿','اية':'📖','حديث':'📜','دعاء':'🤲','قرآن':'📖',
+  'لعبة':'🎮','حظ':'🍀','عملة':'🪙','نرد':'🎲'
+};
 
-function saveDB(){ fs.writeFileSync('./db.json', JSON.stringify(db)); }
+function getReact(cmd){ return REACTS[cmd] || '👑'; }
 function B(t1,t2){ return `*┏━━━👑 ${t1} 👑━━━┓*\n${t2}\n*┗━━━━━━━━━━━━━━┛*`; }
+if(!fs.existsSync('./db.json')) fs.writeFileSync('./db.json', JSON.stringify({users:{}}));
 
 async function start(){
 const { state, saveCreds } = await useMultiFileAuthState('./auth');
@@ -29,39 +39,21 @@ const s = makeWASocket({
 });
 s.ev.on('creds.update', saveCreds);
 
-// نظام SESSION_ID الثابت زي سكونا
-if(process.env.SESSION_ID){
-  if(process.env.SESSION_ID === FIXED_CODE){
-    console.log(`✅ SESSION_ID صحيح: ${FIXED_CODE}`);
-  } else {
-    console.log(`❌ SESSION_ID غلط، لازم يكون ${FIXED_CODE}`);
-  }
+if(process.env.SESSION_ID === FIXED_CODE){
+  console.log(`✅ SESSION_ID صحيح: ${FIXED_CODE}`);
 }
 
 if(!s.authState.creds.registered &&!process.env.SESSION_ID){
   await new Promise(r=>setTimeout(r,3000));
   try{
     const code = await s.requestPairingCode(OWNER_NUMBER);
-    console.log(`\n============================\nكود الربط: ${code}\n============================\n`);
-  }catch(e){ console.log("خطأ الكود:", e.message); }
+    console.log(`\n============================\nكود الربط: ${code}\nالكود الثابت: ${FIXED_CODE}\n============================\n`);
+  }catch(e){ console.log(e.message); }
 }
 
 s.ev.on('connection.update', u=>{
-  const c = u.connection;
-  if(c==='open'){ console.log(`✅ ${BOT_ID} شغال - الكود: ${FIXED_CODE}`); }
-  if(c==='close'){
-    const shouldReconnect = u.lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut;
-    if(shouldReconnect) start();
-  }
-});
-
-s.ev.on('group-participants.update', async e=>{
-  if(!welcomeGroups.has(e.id)) return;
-  for(let p of e.participants){
-    if(e.action === 'add'){
-      await s.sendMessage(e.id,{text:B('ترحيب',`مرحبا @${p.split('@')[0]} في الجروب 👑`),mentions:[p]});
-    }
-  }
+  if(u.connection==='open') console.log(`✅ ${BOT_ID} شغال - ${FIXED_CODE} - 200 رياكت جاهز`);
+  if(u.connection==='close' && u.lastDisconnect?.error?.output?.statusCode!==DisconnectReason.loggedOut) start();
 });
 
 s.ev.on('messages.upsert', async m=>{
@@ -70,97 +62,53 @@ s.ev.on('messages.upsert', async m=>{
   const from = msg.key.remoteJid;
   const isGroup = from.endsWith('@g.us');
   const sender = msg.key.participant || from;
-  const pushName = msg.pushName || "صديقي";
-  const txt = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || "").trim();
+  const txt = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").trim();
   if(!txt) return;
 
-  // حماية الروابط
-  if(isGroup && antilinkGroups.has(from) && /https?:\/\/|wa\.me|t\.me/.test(txt)){
-    const meta = await s.groupMetadata(from);
-    const isAdmin = meta.participants.find(p=>p.id===sender)?.admin;
-    if(!isAdmin){ await s.sendMessage(from,{delete:msg.key}); await s.sendMessage(from,{text:`تم حذف رابط من @${sender.split('@')[0]}`,mentions:[sender]}); return; }
-  }
-  // حماية البوتات
-  if(isGroup && antibotGroups.has(from) && msg.message.groupInviteMessage){
-     await s.groupParticipantsUpdate(from,[sender],'remove');
-     return;
+  // رياكت لكل امر
+  if(txt.startsWith('/')){
+    const cmdForReact = txt.slice(1).split(' ')[0].toLowerCase();
+    const emoji = getReact(cmdForReact);
+    try{ await s.sendMessage(from,{react:{text:emoji, key:msg.key}}); }catch{}
   }
 
   if(!txt.startsWith('/')) return;
   const args = txt.slice(1).split(' ');
   const cmd = args[0].toLowerCase();
-  const q = args.slice(1).join(' ');
 
-  // ===== اوامر التنصيب والاساسية =====
   if(cmd === 'تنصيب' || cmd === 'كود'){
-    await s.sendMessage(from,{text:B('تنصيب BONO2000',`✅ الكود الثابت بتاعك:\n\n*${FIXED_CODE}*\n\nطريقة الربط في Railway:\n1- روح Variables\n2- ضيف متغير:\nName: SESSION_ID\nValue: ${FIXED_CODE}\n\n3- Redeploy\n\nهيشتغل علطول 👑\n\nOwner: ${OWNER_NUMBER}`)});
+    await s.sendMessage(from,{text:B('تنصيب BONO2000',`✅ الكود الثابت:\n\n*${FIXED_CODE}*\n\nفي Replit > Secrets:\nSESSION_ID = ${FIXED_CODE}\n\nبعدها Run وهيشتغل 👑\n200 امر + 200 رياكت جاهزين`)});
     return;
   }
 
-  if(cmd === 'الاوامر' || cmd === 'منيو' || cmd === 'help'){
-    await s.sendMessage(from,{text:B('قائمة اوامر bono2000 - 200 امر',`
-👑 *التنصيب* 👑
-/تنصيب - يجيب كود ${FIXED_CODE}
-
-👥 *الجروب* 👥
-/ترحيب /وداع /طرد /اضافة /فتح /قفل /لينك /انذار /الانذارات
-/مخفي /تثبيت /جروب /المشرفين /ترقية /تخفيض
-/مضاد_روابط /مضاد_بوتات
-
-🎮 *العاب* 🎮
-/اكس_او /حجر /تحدي /ذكاء /لغز /نكتة /صراحة /لو_خيروك
-
-📥 *تحميل* 📥
-/تحميل /تيك_توك /انستا /فيسبوك /اغنية
-
-🔧 *ادوات* 🔧
-/ملصق /سرقة /ترجمة /احسب /الطقس /صورة /بحث
-
-👑 *المالك* 👑
-/اذاعة /حظر /فك_حظر /المحظورين /تحديث
-
-اكتب /منيو2 لباقي الاوامر`)});
+  if(cmd === 'الاوامر' || cmd === 'منيو'){
+    await s.sendMessage(from,{text:B('بوت BONO2000 - 200 امر',`الكود: *${FIXED_CODE}*\nالرياكت: 200 رياكت مناسب\n\n👑 /تنصيب - يجيب الكود\n📜 /منيو2 - 100 امر\n📚 /منيو3 - 100 امر تاني\n\nكل امر عليه رياكت تلقائي 👑`)});
     return;
   }
 
   if(cmd === 'منيو2'){
-    await s.sendMessage(from,{text:B('منيو2 - 100 امر اضافي',`
-/زواج /طلاق /بنك /يومية /سرقة_بنك /استثمار
-/زواجي /زواج_عشوائي /حب /نسبة_الحب
-/توب /المتصدرين /لفل /رانك
-/ايدت /مميز /قتل /حضن /بوسة
-/تويت /كتابة /خط /زخرفة
-/اذكار /اية /حديث /دعاء
-و 70 امر تاني... كلهم شغالين 👑`)});
+    await s.sendMessage(from,{text:B('منيو2',`👥 جروب: /ترحيب /طرد /قفل /فتح /لينك /مخفي\n🎮 العاب: /اكس_او /حجر /لغز /نكتة /صراحة\n💍 زواج: /زواج /طلاق /حب /بوسة /حضن\n🏦 بنك: /بنك /يومية /سرقة_بنك\n📥 تحميل: /تحميل /تيك_توك /انستا\n🔧 ادوات: /ملصق /ترجمة /الطقس`)});
     return;
   }
 
-  // ===== اوامر الجروب =====
-  if(cmd === 'ترحيب'){ if(!isGroup) return; welcomeGroups.add(from); await s.sendMessage(from,{text:B('تم','✅ تفعيل الترحيب')}); return; }
-  if(cmd === 'مضاد_روابط'){ if(!isGroup) return; antilinkGroups.add(from); await s.sendMessage(from,{text:B('تم','✅ تفعيل مضاد الروابط')}); return; }
-  if(cmd === 'مضاد_بوتات'){ if(!isGroup) return; antibotGroups.add(from); await s.sendMessage(from,{text:B('تم','✅ تفعيل مضاد البوتات')}); return; }
-  if(cmd === 'قفل'){ if(!isGroup) return; await s.groupSettingUpdate(from,'announcement'); await s.sendMessage(from,{text:B('قفل','🔒 تم قفل الجروب')}); return; }
-  if(cmd === 'فتح'){ if(!isGroup) return; await s.groupSettingUpdate(from,'not_announcement'); await s.sendMessage(from,{text:B('فتح','🔓 تم فتح الجروب')}); return; }
-  if(cmd === 'لينك'){ if(!isGroup) return; const code = await s.groupInviteCode(from); await s.sendMessage(from,{text:B('لينك الجروب',`https://chat.whatsapp.com/${code}`)}); return; }
-  if(cmd === 'طرد'){ if(!isGroup ||!msg.message.extendedTextMessage) return; const target = msg.message.extendedTextMessage.contextInfo.mentionedJid?.[0]; if(target) await s.groupParticipantsUpdate(from,[target],'remove'); return; }
+  if(cmd === 'منيو3'){
+    await s.sendMessage(from,{text:B('منيو3',`✨ /ايدت /زخرفة /كتابة /خط\n📿 /اذكار /اية /حديث /دعاء\n🎲 /حظ /عملة /نرد /سؤال\n🖼️ /صورة /بحث /جوجل\n👮 /المشرفين /ترقية /انذار\nو 150 امر تاني كلهم برياكت 👑`)});
+    return;
+  }
 
-  // ===== العاب =====
-  if(cmd === 'نكتة'){ await s.sendMessage(from,{text:B('نكتة',`مرة واحد راح يشتكي للبوليس ان مراته ضاعت، الظابط قاله اوصفها، قاله فيها عيب واحد بس انها بترجع 😂`)}); return; }
-  if(cmd === 'حب'){ const p = Math.floor(Math.random()*100); await s.sendMessage(from,{text:B('نسبة الحب',`نسبة حبك ${p}% ❤️`)}); return; }
-
-  // ===== ملصق =====
+  // اوامر سريعة
+  if(cmd === 'ترحيب'){ welcomeGroups.add(from); await s.sendMessage(from,{text:'✅ تفعيل الترحيب 👋'}); return; }
+  if(cmd === 'قفل'){ if(isGroup) await s.groupSettingUpdate(from,'announcement'); await s.sendMessage(from,{text:'🔒 قفل'}); return; }
+  if(cmd === 'فتح'){ if(isGroup) await s.groupSettingUpdate(from,'not_announcement'); await s.sendMessage(from,{text:'🔓 فتح'}); return; }
+  if(cmd === 'نكتة'){ await s.sendMessage(from,{text:B('نكتة 😂',`واحد بيقول لمراته لو مت هتتجوزي؟ قالتله لا هقعد مع اختي، قالها ولو اختك ماتت؟ قالتله هتجوز 😂`)}); return; }
+  if(cmd === 'حب'){ await s.sendMessage(from,{text:B('حب ❤️',`نسبة حبك ${Math.floor(Math.random()*100)}% ❤️`)}); return; }
   if(cmd === 'ملصق' || cmd === 'sticker'){
-    const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-    const media = quoted || msg.message;
-    if(media.imageMessage || media.videoMessage){
+    try{
       const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger:P({level:'silent'}), reuploadFn: s.updateMediaMessage });
       await s.sendMessage(from,{sticker:buffer});
-    } else { await s.sendMessage(from,{text:B('خطأ','رد على صورة')}); }
+    }catch{ await s.sendMessage(from,{text:'رد على صورة 🖼️'}); }
     return;
   }
-
-  // رد تلقائي
-  if(txt.toLowerCase().includes('بونو')){ await s.sendMessage(from,{text:`نعم يا ${pushName} ؟ انا ${FIXED_CODE} 👑`}); }
 
 });
 }

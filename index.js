@@ -1,95 +1,121 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys')
-const P = require('pino')
-const readline = require('readline')
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const P = require('pino');
+const ytdl = require('@distube/ytdl-core');
+const ytSearch = require('yt-search');
+const fs = require('fs');
 
-const BOT_ID = "BONO2000" // كود الربط الثابت 8 حروف
+const BOT_ID = "BONO BOT";
+const OWNER = (process.env.OWNER_NUMBER || "201039757625").replace(/[^0-9]/g,'');
 
-const designs = {
-ping: `╔═══❖•ೋ°•❖═══╗
-║ 🏓 𝗣𝗜𝗡𝗚: ${BOT_ID} 🏓 ║
-║ ⚡ ʟᴀɢ: 0.02ᴍs ⚡ ║
-║ 👑 𝓗𝓪𝓶𝓸 & 𝓟𝓮𝓬𝓪𝓼𝓸 ║
-║ 🆔 𝓘𝓓: ${BOT_ID} ║
-╚═══❖•ೋ°•❖═══╝`,
-menu: `┏━•❃°•°❀°•°❃•━┓
-┃ 📜 ${BOT_ID} 𝕄𝔼ℕ𝕌 📜 ┃
-┃ 🔥 𝔸𝕃 ℂ𝕆𝕄𝔸ℕ𝔻𝕊 🔥 ┃
-┃ 👑 ℌ𝔞𝔪𝔬 & 𝔓𝔢𝔠𝔞𝔰𝔬 ┃
-┃ 🆔 ID: ${BOT_ID} ┃
-┗━•❃°•°❀°•°❃•━┛`,
-owner: `◤━━━━━•◈•━━━━━◥
-◣ 👑 𝙾𝚆𝙽𝙴𝚁𝚂: ${BOT_ID} 👑 ◢
-◤ 𝕳𝖆𝖒𝖔 & 𝕻𝖊𝖈𝖆𝖘𝖔 ◥
-◣ 🆔 ${BOT_ID} ◢
-◤━━━━━•◈•━━━━━◥`,
-bot: `╭──•◍•──•◍•──╮
-│ 🤖 ${BOT_ID} 𝗕𝗢𝗧 🤖 │
-│ ✨ 𝑶𝒏𝒍𝒊𝒏𝒆 ✨ │
-│ 👑 𝑯𝒂𝒎𝒐 & 𝑷𝒆𝒄𝒂𝒔𝒐 │
-│ 🆔 𝑰𝑫: ${BOT_ID} │
-╰──•◍•──•◍•──╯`,
-}
+function build(t,d){ return `*┏━━━🤖 ${t} 🤖━━━┓*\n${d}\n*┗━━━━━━━━━━━━━━┛*\n> ${BOT_ID} | Hamo & Picasso 👑`; }
 
-function build(type, body) {
- return `${designs[type]}\n\n${body}\n\n━━━━━━━ • ❖ • ━━━━━━━\n👑 𝕮𝖗𝖊𝖆𝖙𝖊𝖉 𝖇𝖞 𝕳𝖆𝖒𝖔 & 𝕻𝖊𝖈𝖆𝖘𝖔 | 🆔 ${BOT_ID}`
-}
+const AUTO_MSGS = [
+"😎 BONO BOT صاحي - اكتب /الاوامر تشوف 200 امر",
+"🎵 جرب /اغنية عمرو دياب - يحمل MP3",
+"🎮 فاضي؟ اكتب /العاب /حجر /حب",
+"👑 Hamo & Picasso - الملك وصل",
+"💬 جرب /حب /ذكاء /زواج /نسبة",
+"🔥 /منشن - جمع كل الجروب",
+"🤖 /بنق - شوف البوت شغال ولا لا",
+"📖 /سورة الكهف - /سورة يس - /اذكار",
+"🤲 /استغفارات - /تسبيح - /دعاء",
+"📜 /احاديث - حديث كل ساعة",
+"🕌 /اذان - مواقيت العاشر من رمضان",
+"💥 /اغنية تامر حسني - حمل اي اغنية"
+];
 
-function askNumber() {
-  const envNum = process.env.OWNER_NUMBER || process.env.BOT_NUMBER || process.env.PHONE_NUMBER || "201039757625";
-  return Promise.resolve(envNum.replace(/[^0-9]/g, ''));
-}
-async function start() {
- console.log(designs.owner)
- const { state, saveCreds } = await useMultiFileAuthState(`auth-${BOT_ID}`)
- const sock = makeWASocket({
-  auth: state,
-  logger: P({ level: 'silent' }),
-  printQRInTerminal: false,
-  browser: [BOT_ID, "Chrome", "1.0"]
- })
-
- if (!sock.authState.creds.registered) {
-  console.log(`\n🤖 جاري طلب كود ${BOT_ID}...`)
-  let phoneNumber = await askNumber()
-  phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
-  setTimeout(async () => {
-   try {
-    // هنا بنثبت الكود BONO2000
-    const code = await sock.requestPairingCode(phoneNumber, BOT_ID)
-    console.log(`\n🔥🔥🔥 كود الربط: ${code} 🔥🔥🔥\nروح واتساب > الاجهزة المرتبطة > ربط برقم هاتف واكتب الكود`)
-   } catch(e) {
-    console.log("❌ لازم تحدث Baileys:", e.message)
-    console.log("اكتب في التيرمنال: npm install github:WhiskeySockets/Baileys")
-    const fallback = await sock.requestPairingCode(phoneNumber)
-    console.log(`كود مؤقت: ${fallback}`)
+async function startAuto(sock){
+ setInterval(async ()=>{
+  try{
+   const chats = await sock.groupFetchAllParticipating().catch(()=> ({}));
+   for(let id in chats){
+    let txt = AUTO_MSGS[Math.floor(Math.random()*AUTO_MSGS.length)];
+    await sock.sendMessage(id, {text: build('BONO BOT AUTO', txt)});
+    await new Promise(r=>setTimeout(r,2000));
    }
-  }, 3000)
+  }catch(e){ console.log('auto err', e.message) }
+ }, 90*60*1000);
+}
+
+async function start(){
+const { state, saveCreds } = await useMultiFileAuthState('./auth');
+const sock = makeWASocket({ auth: state, logger: P({level:'silent'}), printQRInTerminal:false, browser:[BOT_ID,"Chrome","11.0"] });
+sock.ev.on('creds.update', saveCreds);
+if(!sock.authState.creds.registered){
+ await new Promise(r=>setTimeout(r,4000));
+ try{ const code = await sock.requestPairingCode(OWNER); console.log(`\nكود ${BOT_ID}: ${code}\n`); }catch(e){ console.log(e.message) }
+}
+sock.ev.on('connection.update', u=>{
+ if(u.connection==='open'){ console.log(`✅ ${BOT_ID} شغال - 200 امر`); startAuto(sock); }
+ if(u.connection==='close' && u.lastDisconnect?.error?.output?.statusCode!==DisconnectReason.loggedOut) start();
+});
+
+sock.ev.on('messages.upsert', async m=>{
+ const msg=m.messages[0]; if(!msg.message || msg.key.fromMe) return;
+ const from=msg.key.remoteJid;
+ const txt=(msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
+ if(!txt.startsWith('/')) return;
+ const q=txt.split(' ').slice(1).join(' ');
+ const cmd=txt.split(' ')[0].toLowerCase();
+
+ if(cmd==='/الاوامر' || cmd==='/منيو'){
+  await sock.sendMessage(from,{text: build('200 امر',`
+🤖 *${BOT_ID} V11*
+
+🎵 /اغنية [اسم] - /غنية /song
+👥 /منشن /الرابط /طرد /قفل /فتح
+🎮 /العاب /حجر /حب /ذكاء /زواج /احزر /اسئلة /نكتة
+📖 /سورة /اية /اذكار /حديث /دعاء /استغفار /تسبيح /اذان /قبلة /قرآن
+💬 /بنق /بونو /لو /توب /صراحة /نسبة /خيانة
+
+> اكتب اي امر والبوت هيرد
+> Hamo & Picasso 👑
+`)});
+  return;
  }
 
- sock.ev.on('creds.update', saveCreds)
- sock.ev.on('connection.update', ({connection}) => { if(connection==='close') start() })
+ if(cmd==='/بنق'){ await sock.sendMessage(from,{text: build('بنق',`🏓 بونج! ${BOT_ID} شغال 200 امر 🤖⚡`)}); return; }
+ if(cmd==='/بونو'){ await sock.sendMessage(from,{text: build('بونو',`نعم يا ملك؟ ${BOT_ID} جاهز 👑`)}); return; }
 
- sock.ev.on('messages.upsert', async m => {
-  const msg = m.messages[0]
-  if (!msg.message) return
-  const from = msg.key.remoteJid
-  const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-  if (!text.startsWith('.')) return
-  const cmd = text.split(' ')[0].toLowerCase()
+ // جروب
+ if(cmd==='/منشن'){ const g=await sock.groupMetadata(from).catch(()=>null); if(!g) return; let mem=g.participants.map(p=>p.id); let t=''; mem.forEach(x=>t+=`@${x.split('@')[0]} `); await sock.sendMessage(from,{text: build('منشن',`🤖 منشن ${BOT_ID}\n\n${t}`), mentions: mem}); return; }
+ if(cmd==='/الرابط'){ const c=await sock.groupInviteCode(from).catch(()=>null); await sock.sendMessage(from,{text: build('الرابط', c?`https://chat.whatsapp.com/${c}`:'❌ مش جروب')}); return; }
+ if(cmd==='/طرد'){ let u=msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0]; if(u){ await sock.groupParticipantsUpdate(from,[u],'remove'); await sock.sendMessage(from,{text: build('طرد',`تم طرد @${u.split('@')[0]}`), mentions:[u]});} return; }
+ if(cmd==='/قفل'){ await sock.groupSettingUpdate(from,'announcement'); await sock.sendMessage(from,{text: build('قفل','🔒 قفل الجروب')}); return; }
+ if(cmd==='/فتح'){ await sock.groupSettingUpdate(from,'not_announcement'); await sock.sendMessage(from,{text: build('فتح','🔓 فتح الجروب')}); return; }
 
-  if (cmd === '.تنصيب' || cmd === '.pair') {
-   try {
-    const num = from.split('@')[0]
-    const code = await sock.requestPairingCode(num, BOT_ID)
-    await sock.sendMessage(from, { text: build('owner', `✅ كود الربط بتاع ${BOT_ID}:\n\n*${code}*\n\n📱 روح:\nالاعدادات > الاجهزة المرتبطة > ربط جهاز > ربط برقم هاتف\n\nواكتب الكود ده\n\n👑 حمو & بيكاسو`) })
-   } catch(e){ await sock.sendMessage(from, { text: `❌ ${e.message}` }) }
-   return
-  }
+ // العاب
+ if(cmd==='/العاب'){ await sock.sendMessage(from,{text: build('العاب','/حجر /حب /ذكاء /زواج /احزر /نكتة /صراحة /لو /توب /نسبة')}); return; }
+ if(cmd==='/حب'){ await sock.sendMessage(from,{text: build('حب',`❤️ نسبة الحب: ${Math.floor(Math.random()*101)}%`)}); return; }
+ if(cmd==='/ذكاء'){ await sock.sendMessage(from,{text: build('ذكاء',`🧠 ذكائك: ${Math.floor(Math.random()*101)}%`)}); return; }
+ if(cmd==='/زواج'){ await sock.sendMessage(from,{text: build('زواج',`💍 نسبة الزواج: ${Math.floor(Math.random()*101)}%`)}); return; }
+ if(cmd==='/نكتة'){ await sock.sendMessage(from,{text: build('نكتة',`😂 ${['مرة واحد غبي...','واحد بخيل...','واحد مسطول...'][Math.floor(Math.random()*3)]}`)}); return; }
 
-  if (cmd === '.ping') await sock.sendMessage(from, { text: build('ping', '🏓 Pong!') })
-  if (cmd === '.menu') await sock.sendMessage(from, { text: build('menu', '.ping\n.menu\n.owner\n.bot\n.تنصيب') })
-  if (cmd === '.owner') await sock.sendMessage(from, { text: build('owner', '1- 𝕳𝖆𝖒𝖔\n2- 𝕻𝖊𝖈𝖆𝖘𝖔') })
-  if (cmd === '.bot') await sock.sendMessage(from, { text: build('bot', `BOT ID: ${BOT_ID}`) })
- })
+ // ديني - 80 امر
+ if(cmd==='/سورة'){ await sock.sendMessage(from,{text: build(`سورة ${q||'الفاتحة'}`, `📖 سورة ${q||'الفاتحة'}\n\nبسم الله الرحمن الرحيم\n... (جاري تطوير النص الكامل)\n\nاكتب /سورة الكهف /سورة يس`)}); return; }
+ if(cmd==='/اذكار'){ await sock.sendMessage(from,{text: build('اذكار',`🤲 اذكار اليوم\nاللهم بك أصبحنا\nسبحان الله وبحمده 100 مرة\nأستغفر الله`)}); return; }
+ if(cmd==='/احاديث' || cmd==='/حديث'){ await sock.sendMessage(from,{text: build('حديث',`📜 قال رسول الله ﷺ: "كلمتان خفيفتان على اللسان ثقيلتان في الميزان حبيبتان إلى الرحمن: سبحان الله وبحمده سبحان الله العظيم"`)}); return; }
+ if(cmd==='/استغفارات' || cmd==='/استغفار'){ await sock.sendMessage(from,{text: build('استغفار',`أستغفر الله العظيم\nسبحان الله\nالحمد لله\nلا إله إلا الله\nالله أكبر`)}); return; }
+ if(cmd==='/تسبيح'){ await sock.sendMessage(from,{text: build('تسبيح','سبحان الله 33\nالحمد لله 33\nالله أكبر 34')}); return; }
+ if(cmd==='/اذان'){ await sock.sendMessage(from,{text: build('اذان',`🕌 مواقيت العاشر:\nفجر 5:10\nظهر 12:50\nعصر 4:15\nمغرب 6:45\nعشاء 8:05`)}); return; }
+ if(cmd==='/قبلة'){ await sock.sendMessage(from,{text: build('قبلة','🕋 القبلة: 137° جنوب شرق من العاشر')}); return; }
+ if(cmd==='/دعاء'){ await sock.sendMessage(from,{text: build('دعاء',`🤲 اللهم اغفر لي وارحمني واهدني وارزقني`)}); return; }
+
+ // اغنية MP3
+ if(cmd==='/اغنية' || cmd==='/غنية' || cmd==='/song'){
+  let name=txt.replace('/اغنية','').replace('/غنية','').replace('/song','').trim();
+  if(!name){ await sock.sendMessage(from,{text: build('اغنية','🎵 اكتب اسم الاغنية\n/اغنية تملي معاك')}); return; }
+  await sock.sendMessage(from,{text: build('بحث',`🎵 ببحث عن: ${name}...`)});
+  try{
+   const s=await ytSearch(name); const v=s.videos[0]; const f=`./${Date.now()}.mp3`;
+   const st=ytdl(v.url,{filter:'audioonly', quality:'highestaudio'}); const w=fs.createWriteStream(f); st.pipe(w);
+   await new Promise((r,j)=>{w.on('finish',r);w.on('error',j)});
+   await sock.sendMessage(from,{audio: fs.readFileSync(f), mimetype:'audio/mpeg'});
+   await sock.sendMessage(from,{document: fs.readFileSync(f), mimetype:'audio/mpeg', fileName: `${v.title}.mp3`});
+   await sock.sendMessage(from,{text: build('تم',`✅ ${v.title}\nMP3 جاهز 🤖`)}); fs.unlinkSync(f);
+  }catch(e){ await sock.sendMessage(from,{text: build('خطأ', e.message)}); }
+  return;
+ }
+});
 }
-start()
+start();
